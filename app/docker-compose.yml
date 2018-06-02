@@ -1,0 +1,53 @@
+version: "3"
+services: 
+  # Run 5 instances of that image as a service called web.
+  web: 
+    image: deepkanwal/get-started:part2
+    deploy: 
+      replicas: 5
+      # Limit each replica to use, at most, 10% of the CPU (across all cores), and 50MB of RAM.
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 50M
+      # Immediately restart containers if one fails.
+      restart_policy:
+        condition: on-failure
+    # Map port 80 on the host to web’s port 80.
+    ports:
+      - "80:80"
+    # Instruct web’s containers to share port 80 via a load-balanced network called webnet. 
+    networks:
+      - webnet
+  # Peer visualizer service to view stack by showing services running on a swarm.
+  visualizer:
+    image: dockersamples/visualizer:stable
+    ports:
+      - "8080:8080"
+    # Give access to host's socket file for Docker
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    deploy:
+      # Ensure that this service only runs on a swarm manager
+      placement:
+        constraints: [node.role == manager]
+    networks: 
+      - webnet
+  # Add a Redis service using the official redis image
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+    # While any data stored on a container is lost on re-deployment, data stored in the ./data directory will be persisted. 
+    volumes:
+      - "/home/docker/data:/data"
+    deploy:
+      # Redis always runs on the manager so it's always using the same filesystem.
+      placement:
+        constraints: [node.role == manager]
+    command: redis-server --appendonly yes
+    networks:
+      - webnet
+# Define the webnet network with the default settings (which is a load-balanced overlay network).
+networks:
+  webnet:
